@@ -1,3 +1,4 @@
+Copyright Greg Johnson
 lua_red_black_trees
 ===================
 This is a lua implementation of red black trees.  The main purpose of this
@@ -38,3 +39,33 @@ A couple of innovations have been added to aid in understandability:
    requirement about the color of the root node.  Neither the algorithms
    as presented nor their correctness proofs require these annoying
    but minor complexities in the traditional presentation of red black trees.
+
+------------
+
+Here is a tiny example:
+
+require 'redblack'
+local tree = redblack.newTree()
+
+redblack.insert(tree, 1)
+redblack.insert(tree, 2)
+redblack.insert(tree, 3)
+
+for element in redblack.iterate(tree) do
+    print(element)
+end
+
+redblack.delete(tree, 1)
+redblack.delete(tree, 2)
+redblack.delete(tree, 3)
+
+------------
+
+The data arguments of insert and delete are required to implement the
+"less than" operator "<".
+
+Native data types such as numbers and strings implement this operator.
+
+An interesting case is the use of lua table objects with meta-tables
+that define the "less than" operator.  These kinds of data values allow
+for <key, value> pairs and indeed arbitrary user-defined data structures.
