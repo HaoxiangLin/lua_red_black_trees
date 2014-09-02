@@ -18,6 +18,15 @@ Usage:
     redblack.delete(tree, 20)
 --]]
 
+local delete, deleteNode, farNephew, findNode, first, grandparent, insert
+local insertIntoSortedPosition, insideChild, isBlackNode, isInsideChild
+local isLeftChild, isRedNode, isRightChild, isRootNode, iterate, leftChild
+local makeFarNephewRed, makeOutsideChild, makeRoot, makeSiblingBlack
+local maxBlackHeight, nearNephew, newNode, newTree, outsideChild, parent
+local restoreBlackProperty, restoreRedProperty, rightChild
+local rotateUp, rotateUpBlackNode, setChild, sibling, successor, swapColors
+local swapWithSuccessor, uncle, violatesBlackProperty
+local violatesRedProperty
 local lchild, rchild = 1,2
 
 function newTree()
