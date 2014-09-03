@@ -9,18 +9,19 @@ local createPoint
 local function main()
     local t = redblack.newTree()
 
-    for i = 1, 10 do
-        redblack.insert(t, createPoint(i, i * i))
+    for i = 1, 8 do
+        local point = createPoint(i, i * i)
+        point.value = point.y * 1000 + point.x
+        redblack.insert(t, point)
     end
 
     for point in redblack.iterate(t) do
-        io.write('<', point.x, ', ', point.y, '> ')
+        print(point.value)
     end
-    print()
 
     print('node count after inserts:  ' .. testredblack.nodeCount(t))
 
-    for i = 1, 10 do
+    for i = 1, 8 do
         redblack.delete(t, createPoint(i, i * i))
     end
 
