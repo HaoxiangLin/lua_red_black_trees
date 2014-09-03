@@ -1,4 +1,4 @@
-Copyright (C) 2012, Greg Johnson
+Copyright (C) 2014, Greg Johnson
 Released under the terms of the GNU GPL v2.0.
 
 lua_red_black_trees
