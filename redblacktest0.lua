@@ -1,3 +1,7 @@
+----------------------------------------------------------------------------
+-- Copyright (C) 2014, Greg Johnson.
+-- Released under the terms of the GNU GPL v2.0.
+----------------------------------------------------------------------------
 require 'redblack'
 local tree = redblack.newTree()
 
