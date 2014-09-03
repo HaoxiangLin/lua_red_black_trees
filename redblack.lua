@@ -26,7 +26,7 @@ local maxBlackHeight, nearNephew, newNode, newTree, outsideChild, parent
 local restoreBlackProperty, restoreRedProperty, rightChild
 local rotateUp, rotateUpBlackNode, setChild, sibling, successor, swapColors
 local swapWithSuccessor, uncle, violatesBlackProperty
-local violatesRedProperty
+local violatesRedProperty, getChild
 local lchild, rchild = 1,2
 
 function newTree()
@@ -52,8 +52,12 @@ function delete(tree, data)
         deleteMe = swapWithSuccessor(deleteMe)
     end
 
-    if not isRootNode(deleteMe) and not isRedNode(deleteMe) then
+    if isRedNode(getChild(deleteMe)) then
+        getChild(deleteMe).color = 'black'
+
+    elseif not isRootNode(deleteMe) and not isRedNode(deleteMe) then
         deleteMe.color = 'white'
+
         restoreBlackProperty(tree, deleteMe)
     end
 
@@ -168,10 +172,13 @@ function insertIntoSortedPosition(tree, subtreeRoot, xData)
 
         if subtreeRoot[childIndex] == nil then 
             return setChild(tree,
-                            subtreeRoot, newNode(xData),
+                            subtreeRoot,
+                            newNode(xData),
                             childIndex == lchild)
         else
-            return insertIntoSortedPosition(tree, subtreeRoot[childIndex], xData)
+            return insertIntoSortedPosition(tree,
+                                            subtreeRoot[childIndex],
+                                            xData)
         end
     end
 end
@@ -374,12 +381,16 @@ function swapWithSuccessor(deleteMe)
     return succ
 end
 
+function getChild(node)
+     return (node and (node[lchild] or node[rchild]))
+end
+
 function deleteNode(tree, deleteMe)
     assert(deleteMe ~= nil and (deleteMe[lchild] == nil or deleteMe[rchild] == nil))
 
     setChild(tree,
              parent(deleteMe),
-             deleteMe[lchild] and deleteMe[lchild] or deleteMe[rchild],
+             getChild(deleteMe),
              isLeftChild(deleteMe))
 end
 
