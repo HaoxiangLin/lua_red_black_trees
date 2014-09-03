@@ -3,9 +3,33 @@
 -- Released under the terms of the GNU GPL v2.0.
 ----------------------------------------------------------------------------
 --[[
+This is a lua implementation of red black trees.
+
+Here are the provided operations:
+ - create a new tree
+ - insert a data element
+ - delete a data element
+ - find a data element
+ - iterate over the data elements
+ 
+A red black tree is a binary search tree in which each node is marked
+as a red node or a black node.  The tree satisfies the following two
+properties, which together guarantee that insert, delete, and find
+operations are all O(logN):
+
+    Red property:    Red nodes do not have red parents.
+
+    Black property:  Siblings have the same maximum black height.
+
+(The maximum black height of a node is the maximum number of black nodes
+on any simple path starting at the node and descending into its subtree.)
+
+Data values are any lua values that support comparison via "<", including
+tables with metatables containing the "__lt" method.
+
 Usage:
     require 'redblack'
-    local tree = newTree()
+    local tree = redblack.newTree()
 
     redblack.insert(tree, 10)
     redblack.insert(tree, 20)
@@ -14,8 +38,12 @@ Usage:
         print(value)
     end
 
+    print(redblack.find(tree, 10))        -- expect 10
+
     redblack.delete(tree, 10)
     redblack.delete(tree, 20)
+
+    print(redblack.find(tree, 10) ~= nil) -- expect false
 --]]
 
 local delete, deleteNode, farNephew, findNode, first, grandparent, insert
@@ -26,7 +54,7 @@ local maxBlackHeight, nearNephew, newNode, newTree, outsideChild, parent
 local restoreBlackProperty, restoreRedProperty, rightChild
 local rotateUp, rotateUpBlackNode, setChild, sibling, successor, swapColors
 local swapWithSuccessor, uncle, violatesBlackProperty
-local violatesRedProperty, getChild
+local violatesRedProperty, getChild, find
 local lchild, rchild = 1,2
 
 function newTree()
@@ -34,6 +62,7 @@ function newTree()
 end
 
 -- data values must be comparable using "<".
+--
 function insert(tree, data)
     local insertedNode = insertIntoSortedPosition(tree, tree.root, data)
 
@@ -42,7 +71,6 @@ function insert(tree, data)
     end
 end
 
--- data values must be comparable using "<".
 function delete(tree, data)
     local deleteMe = findNode(tree.root, data)
 
@@ -56,7 +84,7 @@ function delete(tree, data)
         getChild(deleteMe).color = 'black'
 
     elseif not isRootNode(deleteMe) and not isRedNode(deleteMe) then
-        deleteMe.color = 'white'
+        deleteMe.color = 'white'     -- to create violation of the black property
 
         restoreBlackProperty(tree, deleteMe)
     end
@@ -69,7 +97,7 @@ function violatesRedProperty(node)
 end
 
 -- not called; included here to algorithmically define the black property.
---
+-- 
 function violatesBlackProperty(node)
     return maxBlackHeight(node) ~= maxBlackHeight(sibling(node))
 end
@@ -81,7 +109,7 @@ function maxBlackHeight(node)
     else
         local nodeIsBlack = (node.color == 'black' and 1 or 0)
 
-        local leftMaxBlackHeight = maxBlackHeight(leftChild(node))
+        local leftMaxBlackHeight  = maxBlackHeight(leftChild(node))
         local rightMaxBlackHeight = maxBlackHeight(rightChild(node))
 
         result = nodeIsBlack + math.max(leftMaxBlackHeight, rightMaxBlackHeight)
@@ -94,25 +122,29 @@ end
 -- Other than that, all nodes in the tree satisfy the red and black properties.
 --
 function restoreRedProperty(tree, fixMe)
-    if isRootNode(parent(fixMe)) then
-        parent(fixMe).color = 'black'
+    -- base case 1:
+        if isRootNode(parent(fixMe)) then
+            parent(fixMe).color = 'black'
 
-    elseif not isRedNode(uncle(fixMe)) then
-        -- rotateUp changes color of outside child's parent.
-        -- So, if fixMe is outside child, then
-        -- rotateUp(parent of fixMe) fixes red violation.
-        makeOutsideChild(tree, fixMe)
+    -- base case 2:
+        elseif not isRedNode(uncle(fixMe)) then
+            -- rotateUp changes color of outside child's parent.
+            -- So, if fixMe is outside child, then
+            -- rotateUp(parent of fixMe) fixes red violation.
+            makeOutsideChild(tree, fixMe)
 
-        rotateUp(tree, parent(fixMe))
-    else
-        parent(fixMe).color      = 'black'
-        uncle(fixMe).color       = 'black'
-        grandparent(fixMe).color = 'red'
+            rotateUp(tree, parent(fixMe))
 
-        if violatesRedProperty(grandparent(fixMe)) then
-            restoreRedProperty(tree, grandparent(fixMe))
+    -- inductive case:
+        else
+            parent(fixMe).color      = 'black'
+            uncle(fixMe).color       = 'black'
+            grandparent(fixMe).color = 'red'
+
+            if violatesRedProperty(grandparent(fixMe)) then
+                restoreRedProperty(tree, grandparent(fixMe))
+            end
         end
-    end
 end
 
 -- Node fixMe has max black height one less than its sibling, violating the black property.
@@ -122,30 +154,33 @@ end
 function restoreBlackProperty(tree, fixMe)
     makeSiblingBlack(tree, fixMe)
 
-    if isRedNode(nearNephew(fixMe)) or isRedNode(farNephew(fixMe)) then
-        -- rotateUpBlackNode(sibling) exchanges max black heights of parent's two subtrees:
-        --     increases max black height of subtree containing fixMe (good)
-        --     decreases max black height of subtree containing far nephew (bad)
+    -- base case 1:
+        if isRedNode(nearNephew(fixMe)) or isRedNode(farNephew(fixMe)) then
+            -- rotateUpBlackNode(sibling) exchanges max black heights of parent's two subtrees:
+            --     increases max black height of subtree containing fixMe (good)
+            --     decreases max black height of subtree containing far nephew (bad)
 
-        -- pre-emptively increase farNephew's max black height by changing it from red to black.
-        makeFarNephewRed(fixMe)
-        farNephew(fixMe).color = 'black'
+            -- pre-emptively increase farNephew's max black height by changing it from red to black.
+            makeFarNephewRed(fixMe)
+            farNephew(fixMe).color = 'black'
 
-        rotateUpBlackNode(tree, sibling(fixMe))
+            rotateUpBlackNode(tree, sibling(fixMe))
 
-    else
-        -- fix black property violation by reducing sibling's max black height.  (this also
-        -- reduces max black height of parent, potentially giving parent a black violation.)
+        else
+            -- fix black property violation by reducing sibling's max black height.  (this also
+            -- reduces max black height of parent, potentially giving parent a black violation.)
 
-        sibling(fixMe).color = 'red'
+            sibling(fixMe).color = 'red'
 
-        if isRedNode(parent(fixMe)) then
-            parent(fixMe).color = 'black'
+    -- base case 2:
+            if isRedNode(parent(fixMe)) then
+                parent(fixMe).color = 'black'
 
-        elseif not isRootNode(parent(fixMe)) then
-            restoreBlackProperty(tree, parent(fixMe))
+    -- inductive case:
+            elseif not isRootNode(parent(fixMe)) then
+                restoreBlackProperty(tree, parent(fixMe))
+            end
         end
-    end
 end
 
 function findNode(subtreeRoot, data)
@@ -161,6 +196,11 @@ function findNode(subtreeRoot, data)
     else
         return subtreeRoot
     end
+end
+
+function find(tree, data)
+    local node = findNode(tree.root, data)
+    return node and node.data
 end
 
 function insertIntoSortedPosition(tree, subtreeRoot, xData)
@@ -394,13 +434,6 @@ function deleteNode(tree, deleteMe)
              isLeftChild(deleteMe))
 end
 
-redblack = {
-    newTree = newTree,
-    insert  = insert,
-    delete  = delete,
-    iterate = iterate,
-}
-
 local function printNode(node)
     io.write(tostring(node))
     for k,v in pairs(node) do
@@ -441,4 +474,12 @@ testredblack = {
     printNode = printNode,
     printTree = printTree,
     nodeCount = nodeCount
+}
+
+redblack = {
+    newTree = newTree,
+    insert  = insert,
+    delete  = delete,
+    iterate = iterate,
+    find    = find,
 }

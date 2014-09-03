@@ -14,12 +14,12 @@ local function main()
     for i in redblack.iterate(t) do
         io.write(i, ' ')
     end
-    print('\nnode count after inserts:  ' .. testredblack.nodeCount(t))
+    print('\ntree contains 10 after inserts:  ', redblack.find(t, 10) ~= nil)
 
     for i = 1, 10 do
         redblack.delete(t, i)
     end
-    print('node count after deletes:  ' .. testredblack.nodeCount(t))
+    print('tree contains 10 after deletes:  ', redblack.find(t, 10) ~= nil)
 end
 
 main()
