@@ -84,7 +84,8 @@ function delete(tree, data)
         getChild(deleteMe).color = 'black'
 
     elseif not isRootNode(deleteMe) and not isRedNode(deleteMe) then
-        deleteMe.color = 'white'     -- to create violation of the black property
+        -- to create violation of the black property
+        deleteMe.color = 'white'
 
         restoreBlackProperty(tree, deleteMe)
     end
