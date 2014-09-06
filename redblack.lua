@@ -54,7 +54,8 @@ local maxBlackHeight, nearNephew, newNode, newTree, outsideChild, parent
 local restoreBlackProperty, restoreRedProperty, rightChild
 local rotateUp, rotateUpBlackNode, setChild, sibling, successor, swapColors
 local swapWithSuccessor, uncle, violatesBlackProperty
-local violatesRedProperty, getChild, find
+local violatesRedProperty, getChildOrNil, getOnlyChild, find
+local makeLeafOrParentOfOneLeaf
 local lchild, rchild = 1,2
 
 function newTree()
@@ -71,17 +72,21 @@ function insert(tree, data)
     end
 end
 
+function makeLeafOrParentOfOneLeaf(deleteMe)
+    if deleteMe[lchild] ~= nil and deleteMe[rchild] ~= nil then
+        deleteMe = swapWithSuccessor(deleteMe)
+    end
+end
+
 function delete(tree, data)
     local deleteMe = findNode(tree.root, data)
 
     if deleteMe == nil then return end
 
-    if deleteMe[lchild] ~= nil and deleteMe[rchild] ~= nil then
-        deleteMe = swapWithSuccessor(deleteMe)
-    end
+    makeLeafOrParentOfOneLeaf(deleteMe)
 
-    if isRedNode(getChild(deleteMe)) then
-        getChild(deleteMe).color = 'black'
+    if isRedNode(getChildOrNil(deleteMe)) then
+        getOnlyChild(deleteMe).color = 'black'
 
     elseif not isRootNode(deleteMe) and not isRedNode(deleteMe) then
         -- to create violation of the black property
@@ -308,23 +313,23 @@ function farNephew(node)
 end
 
 function isLeftChild(child)
-    return child ~= nil and child == leftChild(parent(child))
+    return child and child == leftChild(parent(child))
 end
 
 function isRightChild(child)
-    return child ~= nil and child == rightChild(parent(child))
+    return child and child == rightChild(parent(child))
 end
 
 function isBlackNode(node)
-    return node ~= nil and node.color == 'black'
+    return node and node.color == 'black'
 end
 
 function isRedNode(node)
-    return node ~= nil and node.color == 'red'
+    return node and node.color == 'red'
 end
 
 function isRootNode(node)
-    return node ~= nil and node.parent == nil
+    return node and node.parent == nil
 end
 
 function isInsideChild(node)
@@ -422,8 +427,12 @@ function swapWithSuccessor(deleteMe)
     return succ
 end
 
-function getChild(node)
+function getChildOrNil(node)
      return (node and (node[lchild] or node[rchild]))
+end
+
+function getOnlyChild(node)
+     return (node[lchild] or node[rchild])
 end
 
 function deleteNode(tree, deleteMe)
@@ -431,7 +440,7 @@ function deleteNode(tree, deleteMe)
 
     setChild(tree,
              parent(deleteMe),
-             getChild(deleteMe),
+             getChildOrNil(deleteMe),
              isLeftChild(deleteMe))
 end
 
