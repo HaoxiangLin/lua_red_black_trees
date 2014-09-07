@@ -137,10 +137,9 @@ function restoreRedProperty(tree, fixMe)
             -- rotateUp changes color of outside child's parent.
             -- So, if fixMe is outside child, then
             -- rotateUp(parent of fixMe) fixes red violation.
-            makeOutsideChild(tree, fixMe)
+            fixMe = makeOutsideChild(tree, fixMe)
 
             rotateUp(tree, parent(fixMe))
-
     -- inductive case:
         else
             parent(fixMe).color      = 'black'
@@ -154,7 +153,6 @@ function restoreRedProperty(tree, fixMe)
 end
 
 -- Node fixMe has max black height one less than its sibling, violating the black property.
--- Other than that, all nodes in the tree satisfy the red and black properties.
 -- (This algorithm also requires that fixMe not be a red node.)
 --
 function restoreBlackProperty(tree, fixMe)
