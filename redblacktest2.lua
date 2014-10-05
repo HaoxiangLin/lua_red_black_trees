@@ -3,8 +3,7 @@
 -- Released under the terms of the GNU GPL v2.0.
 ----------------------------------------------------------------------------
 require 'redblack'
-local pointMetatable
-local createPoint
+local pointMetatable, createPoint, nodeCount
 
 local function main()
     local t = redblack.newTree()
@@ -38,6 +37,16 @@ function createPoint(x, y)
     result = { x = x, y = y }
     setmetatable(result, pointMetatable)
     return result
+end
+
+function nodeCount(xTree)
+    local count = 0
+
+    for i in redblack.iterate(xTree) do
+        count = count + 1
+    end
+
+    return count
 end
 
 main()

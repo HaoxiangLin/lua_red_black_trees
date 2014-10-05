@@ -1,7 +1,7 @@
-----------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 -- Copyright (C) 2014, Greg Johnson.
 -- Released under the terms of the GNU GPL v2.0.
-----------------------------------------------------------------------------
+--------------------------------------------------------------------------------
 --[[
 This is a lua implementation of red black trees.
 
@@ -48,21 +48,20 @@ Usage:
 
 local delete, deleteNode, farNephew, findNode, first, grandparent, insert
 local insertIntoSortedPosition, insideChild, isBlackNode, isInsideChild
-local isLeftChild, isRedNode, isRightChild, isRootNode, iterate, leftChild
-local makeFarNephewRed, makeOutsideChild, makeRoot, makeSiblingBlack
-local maxBlackHeight, nearNephew, newNode, newTree, outsideChild, parent
-local restoreBlackProperty, restoreRedProperty, rightChild
+local isLeftChild, isRedNode, isRightChild, isRootNode, iterate,
+local leftChild ensureFarNephewIsRed, ensureOutsideChild, makeRootNode,
+local ensureSiblingIsBlack nearNephew, newNode, newTree, outsideChild,
+local parent restoreBlackProperty, restoreRedProperty, rightChild
 local rotateUp, rotateUpBlackNode, setChild, sibling, successor, swapColors
-local swapWithSuccessor, uncle, violatesBlackProperty
-local violatesRedProperty, getChildOrNil, getOnlyChild, find
-local makeLeafOrParentOfOneLeaf
-local lchild, rchild = 1,2
+local swapWithSuccessor, uncle, violatesBlackProperty violatesRedProperty,
+local getChildOrNil, getOnlyChild, find ensureLeafOrParentOfOneLeaf
 
+------------------------------- public functions -------------------------------
 function newTree()
-    return {}
+    return { childList = {} }
 end
 
--- data values must be comparable using "<".
+-- insert a node into the tree; data values must be comparable using "<".
 --
 function insert(tree, data)
     local insertedNode = insertIntoSortedPosition(tree, tree.root, data)
@@ -72,60 +71,43 @@ function insert(tree, data)
     end
 end
 
-function makeLeafOrParentOfOneLeaf(deleteMe)
-    if deleteMe[lchild] ~= nil and deleteMe[rchild] ~= nil then
-        deleteMe = swapWithSuccessor(deleteMe)
-    end
-end
-
+-- delete a node from the tree; data values must be comparable using "<".
+--
 function delete(tree, data)
     local deleteMe = findNode(tree.root, data)
 
     if deleteMe == nil then return end
 
-    makeLeafOrParentOfOneLeaf(deleteMe)
+    deleteMe = ensureLeafOrParentOfOneLeaf(deleteMe)
 
-    if isRedNode(getChildOrNil(deleteMe)) then
-        getOnlyChild(deleteMe).color = 'black'
-
-    elseif not isRootNode(deleteMe) and not isRedNode(deleteMe) then
-        -- to create violation of the black property
-        deleteMe.color = 'white'
-
+    if not isRootNode(deleteMe) and not isRedNode(deleteMe) then
+        deleteMe.color = 'white'  -- to satisfy pre-condition of restoreBlackProperty()
         restoreBlackProperty(tree, deleteMe)
     end
 
     deleteNode(tree, deleteMe)
 end
 
-function violatesRedProperty(node)
-    return isRedNode(node) and isRedNode(parent(node))
+function find(tree, data)
+    local node = findNode(tree.root, data)
+    return node and node.data
 end
 
--- not called; included here to algorithmically define the black property.
--- 
-function violatesBlackProperty(node)
-    return maxBlackHeight(node) ~= maxBlackHeight(sibling(node))
+function iterate(xTree)
+    local f = function(s, var)
+                 local result = s.returnMe
+                 s.returnMe = successor(s.returnMe)
+                 return result and result.data
+              end
+
+    local f, { returnMe = first(xTree.root) }, nil
 end
-
-function maxBlackHeight(node)
-    local result
-    if node == nil then
-        result = 0
-    else
-        local nodeIsBlack = (node.color == 'black' and 1 or 0)
-
-        local leftMaxBlackHeight  = maxBlackHeight(leftChild(node))
-        local rightMaxBlackHeight = maxBlackHeight(rightChild(node))
-
-        result = nodeIsBlack + math.max(leftMaxBlackHeight, rightMaxBlackHeight)
-    end
-
-    return result
-end
+----------------------------- end public functions -----------------------------
 
 -- Node "fixMe" is red and has a red parent, violating the red property.
 -- Other than that, all nodes in the tree satisfy the red and black properties.
+--
+-- Upon return, the red property is restored for all nodes in the tree.  
 --
 function restoreRedProperty(tree, fixMe)
     -- base case 1:
@@ -135,11 +117,14 @@ function restoreRedProperty(tree, fixMe)
     -- base case 2:
         elseif not isRedNode(uncle(fixMe)) then
             -- rotateUp changes color of outside child's parent.
-            -- So, if fixMe is outside child, then
-            -- rotateUp(parent of fixMe) fixes red violation.
-            fixMe = makeOutsideChild(tree, fixMe)
+            -- So, if fixMe is outside child, then rotateUp(parent of fixMe) will fix red violation.
+            --
+            -- (rotateUp requires a red node with black sibling as input)
+
+            fixMe = ensureOutsideChild(tree, fixMe)
 
             rotateUp(tree, parent(fixMe))
+
     -- inductive case:
         else
             parent(fixMe).color      = 'black'
@@ -153,25 +138,33 @@ function restoreRedProperty(tree, fixMe)
 end
 
 -- Node fixMe has max black height one less than its sibling, violating the black property.
+-- Other than that, all nodes in the tree satisfy the red and black properties.
 -- (This algorithm also requires that fixMe not be a red node.)
 --
+-- Upon return, the black property is restored for all nodes in the tree.  
+--
+-- (Also, upon return the parent of fixMe (if it exists) is black;
+-- this fact is used to slightly simplify the delete algorithm.)
+--
 function restoreBlackProperty(tree, fixMe)
-    makeSiblingBlack(tree, fixMe)
+    ensureSiblingIsBlack(tree, fixMe)
 
     -- base case 1:
         if isRedNode(nearNephew(fixMe)) or isRedNode(farNephew(fixMe)) then
-            -- rotateUpBlackNode(sibling) exchanges max black heights of parent's two subtrees:
-            --     increases max black height of subtree containing fixMe (good)
-            --     decreases max black height of subtree containing far nephew (bad)
+            -- In this case we can treat parent(fixMe) as root of a tree; no recursion will be necessary.
+            -- rotateUpBlackNode(sibling) will swap max black heights of root's two subtrees.
 
-            -- pre-emptively increase farNephew's max black height by changing it from red to black.
-            makeFarNephewRed(fixMe)
-            farNephew(fixMe).color = 'black'
+            -- rotate operation will make far nephew a child of root and uncle of fixMe.
+            -- If we ensure that far nephew is red, we will be able to increase its max
+            -- black height by simply changing its color to black.
+
+            ensureFarNephewIsRed(fixMe)
 
             rotateUpBlackNode(tree, sibling(fixMe))
 
+            uncle(fixMe).color = 'black'
         else
-            -- fix black property violation by reducing sibling's max black height.  (this also
+            -- Fix black property violation by reducing sibling's max black height.  (This also
             -- reduces max black height of parent, potentially giving parent a black violation.)
 
             sibling(fixMe).color = 'red'
@@ -187,53 +180,20 @@ function restoreBlackProperty(tree, fixMe)
         end
 end
 
-function findNode(subtreeRoot, data)
-    if subtreeRoot == nil then
-        return nil
-
-    elseif data < subtreeRoot.data then
-        return findNode(subtreeRoot[lchild], data)
-
-    elseif subtreeRoot.data < data then
-        return findNode(subtreeRoot[rchild], data)
-
-    else
-        return subtreeRoot
-    end
-end
-
-function find(tree, data)
-    local node = findNode(tree.root, data)
-    return node and node.data
-end
-
-function insertIntoSortedPosition(tree, subtreeRoot, xData)
-    if subtreeRoot == nil then 
-        return makeRoot(tree, newNode(xData))
-
-    else
-        local childIndex = (xData < subtreeRoot.data and lchild or rchild)
-
-        if subtreeRoot[childIndex] == nil then 
-            return setChild(tree,
-                            subtreeRoot,
-                            newNode(xData),
-                            childIndex == lchild)
-        else
-            return insertIntoSortedPosition(tree,
-                                            subtreeRoot[childIndex],
-                                            xData)
-        end
-    end
-end
-
+----------------------------- rotateUp operations ------------------------------
 -- pre-condition:  redNode must be red and must not have a red sibling.
 -- This operation preserves the red and black properties of the tree and the
 -- in-order traversal of the tree.
 --
--- redNode is pushed up to be the new parent, and parent becomes one of its children.
--- the previous inside child of redNode becomes the new inside child of parent.
--- redNode and parent swap colors.
+--     orig_parent (b)              node (b)
+--          |                        |         
+--     +----+----+     ===>     +----+----+    
+--     |         |              |         |    
+--    node (r)   t3             t1   orig_parent (r)
+--     |                                  |    
+--  +--+--+                            +--+--+ 
+--  |     |                            |     | 
+--  t1    t2                           t2    t3
 --
 function rotateUp(tree, redNode)
     assert(parent(redNode))
@@ -253,24 +213,39 @@ end
 -- This function preserves the red property and the in-order traversal of the tree,
 -- but it violates the black property:
 --
--- rotateUpBlackNode(node) changes max black heights of parent node's two subtrees:
---     increases max black height of subtree containing blackNode
---     decreases max black height of sibling subtree
+-- if we consider parent(blackNode) to be the root of a subtree,
+-- rotateUpBlackNode(node) swaps max black heights of root's two subtrees.
+--
+-- (This function is identical to rotateUp(), except for the pre-conditions)
 --
 function rotateUpBlackNode(tree, blackNode)
     rotateUp(tree, blackNode)
 end
+--------------------------- end rotateUp operations ----------------------------
 
+------------------------------- iterator support -------------------------------
+function first(xNode)
+    while leftChild(xNode) do
+        xNode = leftChild(xNode)
+    end
+    return xNode
+end
+
+function successor(xNode)
+    local result = first(rightChild(xNode))
+    if result == nil then
+        while isRightChild(xNode) do
+            xNode = parent(xNode)
+        end
+        result = parent(xNode)
+    end
+    return result
+end
+----------------------------- end iterator support -----------------------------
+
+------------------------------ familial relations ------------------------------
 function parent(node)
     return node and node.parent
-end
-
-function leftChild(node)
-    return node and node[lchild]
-end
-
-function rightChild(node)
-    return node and node[rchild]
 end
 
 function sibling(node)
@@ -281,15 +256,15 @@ function sibling(node)
 end
 
 function insideChild(node)
-    if     isLeftChild(node)  then return node[rchild]
-    elseif isRightChild(node) then return node[lchild]
+    if     isLeftChild(node)  then return node.childList[2]
+    elseif isRightChild(node) then return node.childList[1]
     else                           return nil
     end
 end
 
 function outsideChild(node)
-    if     isLeftChild(node)  then return node[lchild]
-    elseif isRightChild(node) then return node[rchild]
+    if     isLeftChild(node)  then return node.childList[1]
+    elseif isRightChild(node) then return node.childList[2]
     else                           return nil
     end
 end
@@ -310,12 +285,110 @@ function farNephew(node)
     return outsideChild(sibling(node))
 end
 
+function getOnlyChild(node)
+     return (node.childList[1] or node.childList[2])
+end
+
+function isInsideChild(node)
+    return    isLeftChild(parent(node))  and isRightChild(node)
+           or isRightChild(parent(node)) and isLeftChild(node)
+end
+
+function ensureOutsideChild(tree, node)
+    if isInsideChild(node) then
+        rotateUp(tree, node)
+        node = outsideChild(node)
+    end
+    return node
+end
+
+function leftChild(node)
+    return node and node.childList[1]
+end
+
+function rightChild(node)
+    return node and node.childList[2]
+end
+
 function isLeftChild(child)
     return child and child == leftChild(parent(child))
 end
 
 function isRightChild(child)
     return child and child == rightChild(parent(child))
+end
+
+function setChild(tree, parentNode, childNode, makeLeftChild)
+    if parentNode == nil then
+        tree.root = childNode
+
+    elseif makeLeftChild then
+        parentNode.childList[1] = childNode
+
+    else
+        parentNode.childList[2] = childNode
+    end
+
+    if childNode ~= nil then
+        childNode.parent = parentNode
+    end
+
+    return childNode
+end
+
+function isRootNode(node)
+    return node and node.parent == nil
+end
+
+function makeRootNode(tree, node)
+    tree.root = node
+    return node
+end
+---------------------------- end familial relations ----------------------------
+
+------------------------------ support functions -------------------------------
+function violatesRedProperty(node)
+    return isRedNode(node) and isRedNode(parent(node))
+end
+
+function findNode(subtreeRoot, data)
+    if subtreeRoot == nil then
+        return nil
+
+    elseif data < subtreeRoot.data then
+        return findNode(subtreeRoot.childList[1], data)
+
+    elseif subtreeRoot.data < data then
+        return findNode(subtreeRoot.childList[2], data)
+
+    else
+        return subtreeRoot
+    end
+end
+
+function insertIntoSortedPosition(tree, subtreeRoot, xData)
+    if subtreeRoot == nil then 
+        return makeRootNode(tree, newNode(xData))
+
+    else
+        local childIndex = (xData < subtreeRoot.data and 1 or 2)
+
+        if subtreeRoot.childList[childIndex] == nil then 
+            return setChild(tree,
+                            subtreeRoot,
+                            newNode(xData),
+                            childIndex == 1)
+        else
+            return insertIntoSortedPosition(tree,
+                                            subtreeRoot[childIndex],
+                                            xData)
+        end
+    end
+end
+
+function newNode(xData)
+    local node = { data = xData, color = 'red', childList = {} }
+    return node
 end
 
 function isBlackNode(node)
@@ -326,94 +399,24 @@ function isRedNode(node)
     return node and node.color == 'red'
 end
 
-function isRootNode(node)
-    return node and node.parent == nil
-end
-
-function isInsideChild(node)
-    return    isLeftChild(parent(node))  and isRightChild(node)
-           or isRightChild(parent(node)) and isLeftChild(node)
-end
-
-function newNode(xData)
-    local node = { data = xData, color = 'red' }
-    return node
-end
-
-function makeRoot(tree, node)
-    tree.root = node
-    return node
-end
-
-function first(xNode)
-    while leftChild(xNode) do
-        xNode = leftChild(xNode)
+function ensureLeafOrParentOfOneLeaf(deleteMe)
+    if deleteMe.childList[1] ~= nil and deleteMe.childList[2] ~= nil then
+        deleteMe = swapWithSuccessor(deleteMe)
     end
-    return xNode
-end
-
-function successor(xNode)
-    local result = first(rightChild(xNode))
-    if result == nil then
-        while isRightChild(xNode) do
-            xNode = parent(xNode)
-        end
-        result = parent(xNode)
-    end
-    return result
-end
-
-function iterate(xTree)
-    local f = function(s, var)
-                 local result = s.returnMe
-                 s.returnMe = successor(s.returnMe)
-                 return result and result.data
-              end
-
-    local s = { returnMe = first(xTree.root) }
-
-    local var = nil
-
-    return f, s, var
-end
-
-function setChild(tree, parentNode, childNode, makeLeftChild)
-    if parentNode == nil then
-        tree.root = childNode
-
-    elseif makeLeftChild then
-        parentNode[lchild] = childNode
-
-    else
-        parentNode[rchild] = childNode
-    end
-
-    if childNode ~= nil then
-        childNode.parent = parentNode
-    end
-
-    return childNode
+    return deleteMe
 end
 
 function swapColors(node1, node2)
       node1.color, node2.color = node2.color, node1.color
 end
 
-function makeOutsideChild(tree, node)
-    if isInsideChild(node) then
-        rotateUp(tree, node)
-        node = outsideChild(node)
-    end
-    return node
-end
-
-function makeSiblingBlack(tree, node)
+function ensureSiblingIsBlack(tree, node)
     if isRedNode(sibling(node)) then
         rotateUp(tree, sibling(node))
     end
 end
 
-function makeFarNephewRed(tree, node)
+function ensureFarNephewIsRed(tree, node)
     if isBlackNode(farNephew(node)) then
         rotateUp(tree, nearNephew(node))
     end
@@ -426,22 +429,21 @@ function swapWithSuccessor(deleteMe)
 end
 
 function getChildOrNil(node)
-     return (node and (node[lchild] or node[rchild]))
-end
-
-function getOnlyChild(node)
-     return (node[lchild] or node[rchild])
+     return (node and (node.childList[1] or node.childList[2]))
 end
 
 function deleteNode(tree, deleteMe)
-    assert(deleteMe ~= nil and (deleteMe[lchild] == nil or deleteMe[rchild] == nil))
+    assert(deleteMe ~= nil
+           and (deleteMe.childList[1] == nil or deleteMe.childList[2] == nil))
 
     setChild(tree,
              parent(deleteMe),
              getChildOrNil(deleteMe),
              isLeftChild(deleteMe))
 end
+---------------------------- end support functions -----------------------------
 
+------------------------- support for testing redblack -------------------------
 local function printNode(node)
     io.write(tostring(node))
     for k,v in pairs(node) do
@@ -457,32 +459,22 @@ local function printTree(tree, depth)
 
     if depth == 0 then print() end
 
-    printTree(tree[lchild], depth+1)
+    printTree(tree.childList[1], depth+1)
 
     for i = 1, depth do io.write("    ") end
     printNode(tree)
 
-    printTree(tree[rchild], depth+1)
+    printTree(tree.childList[2], depth+1)
 
     if depth == 0 then print() end
-end
-
-local function nodeCount(xTree)
-    local count = 0
-
-    for i in redblack.iterate(xTree) do
-        count = count + 1
-    end
-
-    return count
 end
 
 testredblack = {
     insertIntoSortedPosition = insertIntoSortedPosition,
     printNode = printNode,
     printTree = printTree,
-    nodeCount = nodeCount
 }
+----------------------- end support for testing redblack -----------------------
 
 redblack = {
     newTree = newTree,
