@@ -48,13 +48,13 @@ Usage:
 
 local delete, deleteNode, farNephew, findNode, first, grandparent, insert
 local insertIntoSortedPosition, insideChild, isBlackNode, isInsideChild
-local isLeftChild, isRedNode, isRightChild, isRootNode, iterate,
-local leftChild ensureFarNephewIsRed, ensureOutsideChild, makeRootNode,
-local ensureSiblingIsBlack nearNephew, newNode, newTree, outsideChild,
-local parent restoreBlackProperty, restoreRedProperty, rightChild
+local isLeftChild, isRedNode, isRightChild, isRootNode, iterate
+local leftChild, ensureFarNephewIsRed, ensureOutsideChild, makeRootNode
+local ensureSiblingIsBlack, nearNephew, newNode, newTree, outsideChild
+local parent, restoreBlackProperty, restoreRedProperty, rightChild
 local rotateUp, rotateUpBlackNode, setChild, sibling, successor, swapColors
-local swapWithSuccessor, uncle, violatesBlackProperty violatesRedProperty,
-local getChildOrNil, getOnlyChild, find ensureLeafOrParentOfOneLeaf
+local swapWithSuccessor, uncle, violatesBlackProperty, violatesRedProperty
+local getChildOrNil, getOnlyChild, find, ensureLeafOrParentOfOneLeaf
 
 ------------------------------- public functions -------------------------------
 function newTree()
@@ -100,7 +100,7 @@ function iterate(xTree)
                  return result and result.data
               end
 
-    local f, { returnMe = first(xTree.root) }, nil
+    return f, { returnMe = first(xTree.root) }, nil
 end
 ----------------------------- end public functions -----------------------------
 
@@ -380,7 +380,7 @@ function insertIntoSortedPosition(tree, subtreeRoot, xData)
                             childIndex == 1)
         else
             return insertIntoSortedPosition(tree,
-                                            subtreeRoot[childIndex],
+                                            subtreeRoot.childList[childIndex],
                                             xData)
         end
     end
@@ -446,9 +446,13 @@ end
 ------------------------- support for testing redblack -------------------------
 local function printNode(node)
     io.write(tostring(node))
-    for k,v in pairs(node) do
-        io.write(' <' .. tostring(k) .. ': ' .. tostring(v) .. '>')
-    end
+    io.write('<c1:  ', tostring(node.childList[1]), '>')
+    io.write(' <c2:  ', tostring(node.childList[2]), '>')
+    io.write(' <color:  ', tostring(node.color), '>')
+    io.write(' <data:  ', tostring(node.data), '>')
+    --for k,v in pairs(node) do
+    --    io.write(' <' .. tostring(k) .. ': ' .. tostring(v) .. '>')
+    --end
     print()
 end
 

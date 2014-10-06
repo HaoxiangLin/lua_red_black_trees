@@ -4,44 +4,61 @@
 ----------------------------------------------------------------------------
 require 'redblack'
 
-local function main()
+function checkTree(values, tree)
+    for i in redblack.iterate(tree) do
+        local nextv = table.remove(values, 1)
+        assert(i == nextv)
+    end
+    assert(#values == 0)
+end
+
+local function insertNoRedViolation()
+    local t = redblack.newTree()
+
+    testredblack.insertIntoSortedPosition(t, t.root, 10).color = 'red'
+        testredblack.insertIntoSortedPosition(t, t.root, 5).color = 'black'
+        testredblack.insertIntoSortedPosition(t, t.root, 15).color = 'black'
+
+    redblack.insert(t, 2)
+
+    checkTree({2, 5, 10, 15}, t)
+end
+
+local function insertBaseCase1()
+    local t = redblack.newTree()
+
+    testredblack.insertIntoSortedPosition(t, t.root, 10).color = 'red'
+
+    redblack.insert(t, 2)
+
+    checkTree({2, 10}, t)
+end
+
+local function insertTest1()
     local t = redblack.newTree()
 
     redblack.insert(t, 10)
     redblack.insert(t, 20)
     redblack.insert(t, 15)
 
-    testredblack.printTree(t)
+    checkTree({10, 15, 20}, t)
 end
 
-main()
-----------------------------------------------------------------------------
--- Copyright (C) 2014, Greg Johnson.
--- Released under the terms of the GNU GPL v2.0.
-----------------------------------------------------------------------------
-require 'redblack'
-local tree = redblack.newTree()
+local function iterateTest1()
+    local tree = redblack.newTree()
 
-redblack.insert(tree, 10)
-redblack.insert(tree, 20)
+    redblack.insert(tree, 10)
+    redblack.insert(tree, 20)
 
-for value in redblack.iterate(tree) do
-    print(value)
+    checkTree({10, 20}, tree)
+
+    redblack.delete(tree, 10)
+    redblack.delete(tree, 20)
+
+    assert(redblack.find(tree, 10) == nil) -- expect false
 end
 
-print(redblack.find(tree, 10))        -- expect 10
-
-redblack.delete(tree, 10)
-redblack.delete(tree, 20)
-
-print(redblack.find(tree, 10) ~= nil) -- expect false
-----------------------------------------------------------------------------
--- Copyright (C) 2014, Greg Johnson.
--- Released under the terms of the GNU GPL v2.0.
-----------------------------------------------------------------------------
-require 'redblack'
-
-local function main()
+local function deleteTest1()
     local t = redblack.newTree()
 
     for i = 1, 10 do
@@ -59,15 +76,31 @@ local function main()
     print('tree contains 10 after deletes:  ', redblack.find(t, 10) ~= nil)
 end
 
-main()
-----------------------------------------------------------------------------
--- Copyright (C) 2014, Greg Johnson.
--- Released under the terms of the GNU GPL v2.0.
-----------------------------------------------------------------------------
-require 'redblack'
-local pointMetatable, createPoint, nodeCount
+local function structuredDataTest1()
+    local pointMetatable, createPoint, nodeCount
 
-local function main()
+    local pointMetatable = {
+        __lt = function(lhs, rhs)
+            return (lhs.x < rhs.x or lhs.x == rhs.x and lhs.y < rhs.y)
+        end,
+    }
+
+    local function createPoint(x, y)
+        result = { x = x, y = y }
+        setmetatable(result, pointMetatable)
+        return result
+    end
+
+    local function nodeCount(xTree)
+        local count = 0
+
+        for i in redblack.iterate(xTree) do
+            count = count + 1
+        end
+
+        return count
+    end
+
     local t = redblack.newTree()
 
     for i = 1, 8 do
@@ -75,50 +108,24 @@ local function main()
         point.value = point.y * 1000 + point.x
         redblack.insert(t, point)
     end
+    --assert(nodeCount(t) == 8)
 
     for point in redblack.iterate(t) do
         print(point.value)
     end
 
-    print('node count after inserts:  ' .. testredblack.nodeCount(t))
+    print('node count after inserts:  ' .. nodeCount(t))
 
     for i = 1, 8 do
         redblack.delete(t, createPoint(i, i * i))
     end
 
-    print('node count after deletes:  ' .. testredblack.nodeCount(t))
+    print('node count after deletes:  ' .. nodeCount(t))
+    --assert(nodeCount(t) == 0)
 end
 
-pointMetatable = {
-    __lt = function(lhs, rhs)
-        return (lhs.x < rhs.x or lhs.x == rhs.x and lhs.y < rhs.y)
-    end,
-}
-
-function createPoint(x, y)
-    result = { x = x, y = y }
-    setmetatable(result, pointMetatable)
-    return result
-end
-
-function nodeCount(xTree)
-    local count = 0
-
-    for i in redblack.iterate(xTree) do
-        count = count + 1
-    end
-
-    return count
-end
-
-main()
-----------------------------------------------------------------------------
--- Copyright (C) 2014, Greg Johnson.
--- Released under the terms of the GNU GPL v2.0.
-----------------------------------------------------------------------------
-require 'redblack'
-
-local function main()
+local function testInsertIntoSortedPosition()
+    print('testInsertIntoSortedPosition start')
     local t = redblack.newTree()
 
     testredblack.insertIntoSortedPosition(t, t.root, 10).color = 'red'
@@ -129,10 +136,22 @@ local function main()
 
         testredblack.insertIntoSortedPosition(t, t.root, 11).color = 'black'
 
-    testredblack.printTree(t)
+    checkTree({7, 8, 9, 10, 11}, t)
 
     redblack.delete(t, 11)
-    testredblack.printTree(t)
+    checkTree({7, 8, 9, 10}, t)
+
+    print('testInsertIntoSortedPosition end')
+end
+
+function main()
+    insertNoRedViolation()
+    insertBaseCase1()
+    insertTest1()
+    iterateTest1()
+    deleteTest1()
+    structuredDataTest1()
+    testInsertIntoSortedPosition()
 end
 
 main()
